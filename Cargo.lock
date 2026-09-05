@@ -8236,6 +8236,7 @@ dependencies = [
 name = "ui"
 version = "0.31.0"
 dependencies = [
+ "ashpd",
  "futures",
  "gpui",
  "gpui_platform",
@@ -8243,8 +8244,10 @@ dependencies = [
  "icons",
  "image",
  "log",
+ "objc2-app-kit 0.3.2",
  "serde",
  "unicode-segmentation",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

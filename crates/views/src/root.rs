@@ -12,7 +12,7 @@ use state::{
 };
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use ui::WindowFrame;
-use ui::{ActiveTheme as _, Dismiss, Look, Theme, ThemeKind, clear_listing};
+use ui::{ActiveTheme as _, Dismiss, Look, Stillness, Theme, ThemeKind, clear_listing};
 
 use crate::chrome::{TitleBar, TitleBarEvent, TitleBarOptions, Toolbar, Tooled};
 use crate::screens::search::SearchView;
@@ -164,6 +164,24 @@ impl Root {
                 .shells
                 .workspace
                 .update(cx, |workspace, cx| workspace.toggle_sidebar_right(cx)),
+        })
+        .detach();
+
+        // the system reduce-motion preference has no change event here, so it is re-read each
+        // time the user comes back to the window, which is when they could have flipped it
+        cx.observe_window_activation(window, |_, window, cx| {
+            if !window.is_window_active() {
+                return;
+            }
+            let settings = Sonora::global(cx).settings.clone();
+            let (stillness, pace) = {
+                let settings = settings.read(cx);
+                (settings.stillness(), settings.pace())
+            };
+            if stillness != Stillness::System {
+                return;
+            }
+            ui::motion::apply(stillness, pace, cx);
         })
         .detach();
 

@@ -9,6 +9,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The Motion setting's System option now follows the operating system: Reduce Motion on macOS,
+  Animation effects on Windows, and GNOME's Reduce Animation on Linux through the desktop portal.
+  Sonora re-reads it whenever its window comes to the front, so flipping the switch takes effect
+  without a restart.
 - Local music now carries a date added, taken from when each file was last changed, so the Date
   added column fills in and sorting songs, albums and artists by it works.
 

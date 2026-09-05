@@ -49,8 +49,9 @@ sonora → views → state → music
   and the models in its root; each provider lives in a submodule (`music::spotify`,
   `music::youtube`, `music::local`). `state` and `views` see only the root traits and models — never
   a provider module. Only `sonora/src/main.rs` names a concrete provider.
-- `ui` depends only on `gpui`, `serde` and `i18n`. It must never know about `music`, `state`, or
-  playback.
+- `ui` depends only on `gpui`, `serde` and `i18n`, plus the per-platform crates `ui::motion` needs
+  to read the system reduce-motion preference (`objc2-app-kit`, `windows-sys`, `ashpd`). It must
+  never know about `music`, `state`, or playback.
 - `music` must never depend on `gpui`. It is plain async Rust.
 - `storage` is a leaf shared by `state` and `music`; it owns the only state database path, schema,
   connection setup and legacy database migration.
