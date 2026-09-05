@@ -4,19 +4,19 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::shared::local;
-use crate::shared::popups::{AccountPicker, CookiePrompt, SearchPopup, matches_query};
+use crate::shared::popups::{DevicePrompt, SearchPopup, matches_query};
 use gpui::{
     AnyElement, App, Context, Entity, FontWeight, Pixels, Render, SharedString, TextRun, Window,
     div, font, px,
 };
 use gpui::{ScrollHandle, prelude::*, svg};
 use i18n::{Language, t};
-use music::{AccountChoice, SignIn, SignInPrompt, WritingSystem};
+use music::{SignIn, SignInPrompt, WritingSystem};
 use router::{NavEntry, Screen, SettingsTab};
 use state::{AppSettings, Failure, Playback, SYSTEM_FONT, Session, SessionState, Sonora};
 use ui::{ActiveTheme as _, Scrollbar, Scroller, eyebrow};
 use ui::{
-    Avatar, Button, InfoCard, Initials, Input, Look, MAX_FONT, MAX_LYRICS_SCALE, MAX_TRANSPARENCY,
+    Avatar, Button, InfoCard, Initials, Look, MAX_FONT, MAX_LYRICS_SCALE, MAX_TRANSPARENCY,
     MIN_FONT, MIN_LYRICS_SCALE, MenuItem, Pace, Picker, Popovers, Rounding, Saver, Scrubber,
     ScrubberState, Separator, Skeleton, Stillness, Switch, Text, Theme, ThemeKind,
 };
@@ -68,8 +68,8 @@ struct Account {
 
 fn offered(method: &SignIn, stored: bool, guest: bool) -> bool {
     match method {
-        SignIn::Default | SignIn::Anonymous => !stored,
-        SignIn::Secret => !stored || guest,
+        SignIn::Default => !stored || guest,
+        SignIn::Anonymous => !stored,
         SignIn::Path(_) => false,
     }
 }
@@ -126,7 +126,6 @@ pub struct SettingsView {
     scrollbar: Entity<Scrollbar>,
     opacity: ScrubberState,
     popovers: Popovers,
-    secret: Entity<Input>,
     languages: SearchPopup,
     typefaces: SearchPopup,
     typeface_faced: RefCell<HashSet<SharedString>>,
@@ -164,7 +163,6 @@ impl SettingsView {
             scrollbar: cx.new(|_| Scrollbar::new(ScrollHandle::new()).watching(me)),
             opacity: ScrubberState::new("opacity"),
             popovers: Popovers::default(),
-            secret: cx.new(|cx| Input::new("login-cookie-hint", cx)),
             languages,
             typefaces,
             typeface_faced: RefCell::new(HashSet::new()),
@@ -1374,13 +1372,7 @@ impl SettingsView {
         let pending = session.is_pending();
         let signed_out = matches!(session.state(), SessionState::SignedOut);
         let guest = !session.authenticated();
-        let waiting = match session.state() {
-            SessionState::Authorizing(prompt) => !matches!(
-                prompt,
-                Some(SignInPrompt::Secret | SignInPrompt::Accounts(_))
-            ),
-            _ => false,
-        };
+        let waiting = matches!(session.state(), SessionState::Authorizing(_));
         let accounts: Vec<Account> = session
             .providers()
             .map(|info| Account {
@@ -1537,32 +1529,13 @@ impl SettingsView {
                             .label(t!("common-cancel"))
                             .small()
                             .outline()
-                            .on_click(cx.listener(|this, _, _, cx| this.abandon(cx))),
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.session
+                                    .update(cx, |session, cx| session.cancel_sign_in(cx));
+                            })),
                     ),
                 )
             })
-    }
-
-    fn abandon(&mut self, cx: &mut Context<Self>) {
-        self.secret.update(cx, |input, cx| input.set_text("", cx));
-        self.session
-            .update(cx, |session, cx| session.cancel_sign_in(cx));
-    }
-
-    fn submit(&mut self, cx: &mut Context<Self>) {
-        let text = self.secret.read(cx).text().to_string();
-        if text.trim().is_empty() {
-            return;
-        }
-        self.secret.update(cx, |input, cx| input.set_text("", cx));
-        self.session
-            .update(cx, |session, cx| session.submit_input(text, cx));
-    }
-
-    fn secret_prompt(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        CookiePrompt::new(self.secret.clone())
-            .on_submit(cx.listener(|this, _, _, cx| this.submit(cx)))
-            .on_cancel(cx.listener(|this, _, _, cx| this.abandon(cx)))
     }
 
     fn method(
@@ -1591,10 +1564,6 @@ impl SettingsView {
                 t!("login-sign-in", provider = provider),
             ),
             SignIn::Anonymous => (format!("connect-{slug}-guest"), t!("login-guest-use")),
-            SignIn::Secret => (
-                format!("connect-{slug}-cookies"),
-                t!("login-connect-cookies"),
-            ),
             SignIn::Path(_) => (
                 format!("connect-{slug}-path"),
                 t!("login-sign-in", provider = provider),
@@ -1756,23 +1725,6 @@ impl SettingsView {
             )
             .child(div().flex_none().child(action))
     }
-
-    fn account_modal(
-        &self,
-        accounts: Vec<AccountChoice>,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        AccountPicker::new(accounts)
-            .on_pick(cx.listener(|this, id: &SharedString, _, cx| {
-                let id = id.to_string();
-                this.session
-                    .update(cx, |session, cx| session.submit_input(id, cx));
-            }))
-            .on_cancel(cx.listener(|this, _, _, cx| {
-                this.session
-                    .update(cx, |session, cx| session.cancel_sign_in(cx));
-            }))
-    }
 }
 
 fn romanization_script_copy(writing_system: WritingSystem) -> (&'static str, &'static str) {
@@ -1848,16 +1800,12 @@ impl Render for SettingsView {
             cx,
         );
 
-        let accounts = match self.session.read(cx).state() {
-            SessionState::Authorizing(Some(SignInPrompt::Accounts(accounts))) => {
-                Some(accounts.clone())
+        let device = match self.session.read(cx).state() {
+            SessionState::Authorizing(Some(SignInPrompt::Code { code, url })) => {
+                Some((code.clone(), url.clone()))
             }
             _ => None,
         };
-        let secret = matches!(
-            self.session.read(cx).state(),
-            SessionState::Authorizing(Some(SignInPrompt::Secret))
-        );
 
         div()
             .relative()
@@ -1885,11 +1833,15 @@ impl Render for SettingsView {
                             }),
                     ),
             )
-            .when_some(accounts, |this, accounts| {
-                this.child(self.account_modal(accounts, cx).into_any_element())
-            })
-            .when(secret, |this| {
-                this.child(self.secret_prompt(cx).into_any_element())
+            .when_some(device, |this, (code, url)| {
+                this.child(
+                    DevicePrompt::new(code, url)
+                        .on_cancel(cx.listener(|this, _, _, cx| {
+                            this.session
+                                .update(cx, |session, cx| session.cancel_sign_in(cx));
+                        }))
+                        .into_any_element(),
+                )
             })
     }
 }

@@ -10,31 +10,122 @@ const HOME: &str = "FEmusic_home";
 const LISTEN_AGAIN: &str = "Listen again";
 const QUICK_PICKS: &str = "Quick picks";
 const QUICK_PICKS_LIMIT: usize = 15;
+const HOME_PAGE_LIMIT: usize = 6;
+const MY_MIX: &str = "RDMM";
+const LAST_PLAYED: &str = "FEmusic_last_played";
+const LISTEN_AGAIN_LIMIT: usize = 20;
 const CATEGORIES: &str = "FEmusic_moods_and_genres";
 const CATEGORY: &str = "FEmusic_moods_and_genres_category";
 const THUMB: u32 = 120;
 
 pub(crate) async fn home(api: &YtMusic) -> Result<HomeFeed> {
+    let mine = match api.is_oauth_auth() {
+        true => my_mix(api).await,
+        false => Vec::new(),
+    };
+    let recent = match api.is_oauth_auth() {
+        true => last_played(api).await,
+        false => Vec::new(),
+    };
+    let mut feed = anonymous_home(api).await?;
+    if !mine.is_empty() {
+        feed.quick_picks = Some(mine);
+    }
+    if !recent.is_empty() {
+        feed.listen_again = recent;
+    }
+    Ok(feed)
+}
+
+async fn my_mix(api: &YtMusic) -> Vec<Track> {
+    let answer = match api
+        .execute("next", Client::Music, json!({ "playlistId": MY_MIX }))
+        .await
+    {
+        Ok(answer) => answer,
+        Err(error) => {
+            log::warn!("youtube: cannot load My Mix: {error:#}");
+            return Vec::new();
+        }
+    };
+    let mut seen = std::collections::HashSet::new();
+    parse::find_renderers(&answer, "tileRenderer")
+        .into_iter()
+        .filter_map(parse::tv_tile_track)
+        .filter(|track| track.video_id.is_some() && seen.insert(signature(track)))
+        .take(QUICK_PICKS_LIMIT)
+        .enumerate()
+        .map(|(index, track)| wire::track(track, index as u32))
+        .collect()
+}
+
+async fn last_played(api: &YtMusic) -> Vec<Track> {
+    let answer = match api.browse_library(LAST_PLAYED).await {
+        Ok(answer) => answer,
+        Err(error) => {
+            log::warn!("youtube: cannot load Listen again: {error:#}");
+            return Vec::new();
+        }
+    };
+    let mut seen = std::collections::HashSet::new();
+    parse::find_renderers(&answer, "tileRenderer")
+        .into_iter()
+        .filter_map(parse::tv_tile_track)
+        .filter(|track| track.video_id.is_some() && seen.insert(signature(track)))
+        .take(LISTEN_AGAIN_LIMIT)
+        .enumerate()
+        .map(|(index, track)| wire::track(track, index as u32))
+        .collect()
+}
+
+fn signature(track: &ytmusic::Track) -> String {
+    let artist = track
+        .artists
+        .first()
+        .map(|artist| artist.name.to_lowercase())
+        .unwrap_or_default();
+    format!("{}|{artist}", track.title.to_lowercase())
+}
+
+async fn anonymous_home(api: &YtMusic) -> Result<HomeFeed> {
     let answer = api
-        .execute("browse", Client::Music, json!({ "browseId": HOME }))
+        .execute_with(
+            "browse",
+            Client::Music,
+            json!({ "browseId": HOME }),
+            !api.is_oauth_auth(),
+        )
         .await?;
     let listen_again = tracks(&answer, LISTEN_AGAIN);
-    let quick_picks = match continuation(&answer) {
-        Some(token) => match api
-            .execute("browse", Client::Music, json!({ "continuation": token }))
+    let mut quick_picks = tracks(&answer, QUICK_PICKS);
+    let mut next = continuation(&answer);
+    for _ in 0..HOME_PAGE_LIMIT {
+        if !quick_picks.is_empty() {
+            break;
+        }
+        let Some(token) = next else {
+            break;
+        };
+        match api
+            .execute_with(
+                "browse",
+                Client::Music,
+                json!({ "continuation": token }),
+                !api.is_oauth_auth(),
+            )
             .await
         {
-            Ok(continued) => tracks(&continued, QUICK_PICKS)
-                .into_iter()
-                .take(QUICK_PICKS_LIMIT)
-                .collect(),
+            Ok(continued) => {
+                quick_picks = tracks(&continued, QUICK_PICKS);
+                next = continuation(&continued);
+            }
             Err(error) => {
                 log::warn!("youtube: cannot load Quick picks: {error:#}");
-                Vec::new()
+                break;
             }
-        },
-        None => Vec::new(),
-    };
+        }
+    }
+    quick_picks.truncate(QUICK_PICKS_LIMIT);
     Ok(HomeFeed {
         listen_again,
         quick_picks: Some(quick_picks),
@@ -44,7 +135,12 @@ pub(crate) async fn home(api: &YtMusic) -> Result<HomeFeed> {
 
 pub(crate) async fn genres(api: &YtMusic) -> Result<Vec<Genre>> {
     let answer = api
-        .execute("browse", Client::Music, json!({ "browseId": CATEGORIES }))
+        .execute_with(
+            "browse",
+            Client::Music,
+            json!({ "browseId": CATEGORIES }),
+            !api.is_oauth_auth(),
+        )
         .await?;
 
     Ok(parse::find_renderers(&answer, "gridRenderer")
@@ -56,10 +152,11 @@ pub(crate) async fn genres(api: &YtMusic) -> Result<Vec<Genre>> {
 
 pub(crate) async fn genre(api: &YtMusic, params: &str) -> Result<GenreDetail> {
     let answer = api
-        .execute(
+        .execute_with(
             "browse",
             Client::Music,
             json!({ "browseId": CATEGORY, "params": params }),
+            !api.is_oauth_auth(),
         )
         .await?;
 
@@ -166,20 +263,12 @@ fn track(item: &Value) -> Option<ytmusic::Track> {
     })
 }
 
-fn continuation(answer: &Value) -> Option<&str> {
-    answer.str_at(&[
-        "contents",
-        "singleColumnBrowseResultsRenderer",
-        "tabs",
-        "0",
-        "tabRenderer",
-        "content",
-        "sectionListRenderer",
-        "continuations",
-        "0",
-        "nextContinuationData",
-        "continuation",
-    ])
+fn continuation(answer: &Value) -> Option<String> {
+    let mut found = Vec::new();
+    ytmusic::nav::find_all(answer, "nextContinuationData", &mut found);
+    found
+        .into_iter()
+        .find_map(|item| item.str_at(&["continuation"]).map(str::to_string))
 }
 
 fn item(node: &Value) -> Option<GenreItem> {

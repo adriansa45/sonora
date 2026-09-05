@@ -401,13 +401,8 @@ impl Session {
     pub fn submit_input(&mut self, text: String, cx: &mut Context<Self>) {
         if let Some(input) = &self.input {
             input.send(text).ok();
-            if let SessionState::Authorizing(Some(
-                SignInPrompt::Secret | SignInPrompt::Accounts(_),
-            )) = &self.state
-            {
-                self.state = SessionState::Authorizing(None);
-                cx.notify();
-            }
+            self.state = SessionState::Authorizing(None);
+            cx.notify();
         }
     }
 

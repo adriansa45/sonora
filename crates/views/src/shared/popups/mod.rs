@@ -1,5 +1,4 @@
-mod accounts;
-mod cookie;
+mod device;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -8,8 +7,7 @@ use gpui::prelude::*;
 use gpui::{App, Context, Div, ElementId, Entity, EntityId, Pixels, ScrollHandle, Window, div, px};
 use ui::{Input, Menu, Picker, Scrollbar, SelectNext, SelectPrevious, Submit};
 
-pub(crate) use accounts::AccountPicker;
-pub(crate) use cookie::CookiePrompt;
+pub(crate) use device::DevicePrompt;
 
 const SEARCH_HEIGHT: Pixels = px(320.);
 const SELECTED_LEAD: usize = 2;

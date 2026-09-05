@@ -217,7 +217,6 @@ pub struct ProviderSession {
 pub enum SignIn {
     Default,
     Anonymous,
-    Secret,
     Path(PathBuf),
 }
 
@@ -251,18 +250,9 @@ impl std::fmt::Display for SignInFailure {
 impl std::error::Error for SignInFailure {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AccountChoice {
-    pub id: String,
-    pub name: String,
-    pub detail: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SignInPrompt {
-    Accounts(Vec<AccountChoice>),
     Code { code: String, url: String },
     Url(String),
-    Secret,
 }
 
 pub type PromptSink = Arc<dyn Fn(SignInPrompt) + Send + Sync>;

@@ -77,7 +77,7 @@ sys-locale = "0.3"
 tray-icon = { version = "0.24", default-features = false }
 unic-langid = { version = "0.9", features = ["macros"] }
 unicode-segmentation = "1.12"
-ytmusic = { git = "https://github.com/nolight132/ytmusic-rs", rev = "0b2b13a32c16e4245b6c9001f8088a75c83a638c" }
+ytmusic = { git = "https://github.com/nolight132/ytmusic-rs", rev = "4482add8b06e07d770ae561c5c8b94e9ecb7a02b" }
 
 librespot-core = { version = "0.8.0", default-features = false, features = [
   "rustls-tls-native-roots",

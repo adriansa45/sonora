@@ -1,14 +1,13 @@
-use crate::shared::popups::{AccountPicker, CookiePrompt};
 use gpui::prelude::*;
 use gpui::{
     ClipboardItem, Context, Entity, FontWeight, IntoElement, Pixels, Render, SharedString, Window,
     div, px, svg,
 };
 use i18n::t;
-use music::{AccountChoice, SignIn, SignInPrompt};
+use music::{SignIn, SignInPrompt};
 use state::{Session, SessionState, Sonora, Usage};
 use ui::ActiveTheme as _;
-use ui::{Button, Checkbox, Input, TabBar, Text};
+use ui::{Button, Checkbox, TabBar, Text};
 
 const COLUMN: Pixels = px(280.);
 const LOGO: Pixels = px(48.);
@@ -24,7 +23,6 @@ struct Column {
 pub struct LoginView {
     session: Entity<Session>,
     usage: Entity<Usage>,
-    secret: Entity<Input>,
     tab: usize,
 }
 
@@ -36,7 +34,6 @@ impl LoginView {
         Self {
             session,
             usage,
-            secret: cx.new(|cx| Input::new("login-cookie-hint", cx)),
             tab: 0,
         }
     }
@@ -57,20 +54,8 @@ impl LoginView {
             }))
     }
 
-    fn submit(&mut self, cx: &mut Context<Self>) {
-        self.acted(cx);
-        let text = self.secret.read(cx).text().to_string();
-        if text.trim().is_empty() {
-            return;
-        }
-        self.secret.update(cx, |input, cx| input.set_text("", cx));
-        self.session
-            .update(cx, |session, cx| session.submit_input(text, cx));
-    }
-
     fn abandon(&mut self, cx: &mut Context<Self>) {
         self.acted(cx);
-        self.secret.update(cx, |input, cx| input.set_text("", cx));
         self.session
             .update(cx, |session, cx| session.cancel_sign_in(cx));
     }
@@ -97,10 +82,6 @@ impl LoginView {
             SignIn::Anonymous => (
                 format!("sign-in-{slug}-guest"),
                 t!("login-use", provider = provider),
-            ),
-            SignIn::Secret => (
-                format!("sign-in-{slug}-cookies"),
-                t!("login-connect-cookies"),
             ),
             SignIn::Path(_) => (
                 format!("sign-in-{slug}-path"),
@@ -191,6 +172,7 @@ impl LoginView {
 
     fn code_prompt(&self, code: String, url: String, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = *cx.theme();
+        let opened = url.clone();
         div()
             .flex()
             .flex_col()
@@ -223,6 +205,13 @@ impl LoginView {
                             }),
                     ),
             )
+            .child(
+                Button::new("open-device-authorization")
+                    .label(SharedString::from(url))
+                    .icon("icons/external-link.svg")
+                    .outline()
+                    .on_click(move |_, _, cx| cx.open_url(&opened)),
+            )
     }
 
     fn url_prompt(&self, url: String) -> impl IntoElement {
@@ -234,27 +223,6 @@ impl LoginView {
             .on_click(move |_, _, cx| {
                 cx.write_to_clipboard(ClipboardItem::new_string(url.clone()));
             })
-    }
-
-    fn secret_prompt(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        CookiePrompt::new(self.secret.clone())
-            .on_submit(cx.listener(|this, _, _, cx| this.submit(cx)))
-            .on_cancel(cx.listener(|this, _, _, cx| this.abandon(cx)))
-    }
-
-    fn account_modal(
-        &self,
-        accounts: Vec<AccountChoice>,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        AccountPicker::new(accounts)
-            .on_pick(cx.listener(|this, id: &SharedString, _, cx| {
-                this.acted(cx);
-                let id = id.to_string();
-                this.session
-                    .update(cx, |session, cx| session.submit_input(id, cx));
-            }))
-            .on_cancel(cx.listener(|this, _, _, cx| this.abandon(cx)))
     }
 }
 
@@ -272,13 +240,7 @@ impl Render for LoginView {
             })
             .map(|info| info.slug)
             .next();
-        let waiting = match &state {
-            SessionState::Authorizing(prompt) => !matches!(
-                prompt,
-                Some(SignInPrompt::Secret | SignInPrompt::Accounts(_))
-            ),
-            _ => false,
-        };
+        let waiting = matches!(state, SessionState::Authorizing(_));
         let tabs = providers
             .iter()
             .enumerate()
@@ -312,9 +274,6 @@ impl Render for LoginView {
         let status = match &state {
             SessionState::SignedOut => t!("login-signed-out"),
             SessionState::Restoring => t!("login-restoring"),
-            SessionState::Authorizing(Some(SignInPrompt::Secret | SignInPrompt::Accounts(_))) => {
-                t!("login-signed-out")
-            }
             SessionState::Authorizing(_) => t!("login-authorizing"),
             SessionState::SignedIn(profile) => t!("login-signed-in", name = &profile.display_name),
             SessionState::Failed(_) => t!("login-signed-out"),
@@ -322,11 +281,6 @@ impl Render for LoginView {
 
         let prompt = match &state {
             SessionState::Authorizing(prompt) => prompt.clone(),
-            _ => None,
-        };
-        let secret = matches!(prompt, Some(SignInPrompt::Secret));
-        let accounts = match &prompt {
-            Some(SignInPrompt::Accounts(accounts)) => Some(accounts.clone()),
             _ => None,
         };
         let code = match prompt {
@@ -400,11 +354,5 @@ impl Render for LoginView {
                 )
             })
             .when(orphan, |this| this.child(self.consent(cx)))
-            .when(secret, |this| {
-                this.child(self.secret_prompt(cx).into_any_element())
-            })
-            .when_some(accounts, |this, accounts| {
-                this.child(self.account_modal(accounts, cx).into_any_element())
-            })
     }
 }
