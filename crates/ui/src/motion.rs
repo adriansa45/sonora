@@ -394,7 +394,10 @@ mod system {
         cx.set_reduce_motion(answered != 0 && animated == 0);
     }
 
-    /// GNOME's Reduce Animation toggle
+    /// Reads the standardized XDG reduced-motion preference.
+    ///
+    /// Requires a backend that supports `org.freedesktop.appearance.reduced-motion`;
+    /// older versions may not expose it.
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     pub(super) fn settle(cx: &mut App) {
         use ashpd::desktop::settings::Settings;
@@ -404,11 +407,9 @@ mod system {
             let still = cx
                 .background_spawn(async {
                     let settings = Settings::new().await.ok()?;
-                    let animated = settings
-                        .read::<bool>("org.gnome.desktop.interface", "enable-animations")
-                        .await
-                        .ok()?;
-                    Some(!animated)
+                    let reduced = settings.reduced_motion().await.ok()?;
+
+                    Some(reduced == ReducedMotion::ReducedMotion)
                 })
                 .await;
             cx.update(|cx| cx.set_reduce_motion(still.unwrap_or(false)));
