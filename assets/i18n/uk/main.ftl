@@ -25,7 +25,6 @@ nav-search = Пошук
 nav-library = Моя медіатека
 nav-settings = Налаштування
 nav-songs = Треки
-nav-favorites = Улюблене
 nav-albums = Альбоми
 nav-playlists = Плейлисти
 nav-artists = Виконавці
@@ -42,12 +41,14 @@ library-play-liked-songs = Слухати
 library-no-songs = Улюбленого ще немає
 library-no-albums = Поки немає збережених альбомів
 library-no-playlists = Поки немає плейлистів
-library-no-artists = Поки немає відстежуваних виконавців
+library-no-artists = Поки немає улюблених виконавців
 library-no-local-songs = Імпортовані треки не знайдено
-library-no-local-favorites = Локального улюбленого ще немає
 library-no-local-albums = Імпортовані альбоми не знайдено
 library-no-local-artists = Імпортованих виконавців не знайдено
 library-no-local-playlists = Локальних плейлистів ще немає
+library-no-catalog-songs = Треків не знайдено
+library-no-catalog-albums = Альбомів не знайдено
+library-no-catalog-artists = Виконавців не знайдено
 library-no-matches = Нічого не знайдено
 library-not-loaded = Бібліотека не завантажилася
 library-part-not-loaded = Цей розділ бібліотеки не завантажився
@@ -167,6 +168,7 @@ filter-duration = Тривалість
 filter-year = Рік
 filter-explicit = Лише з ненормативною лексикою
 filter-playable = Лише доступні
+filter-favorites = Лише улюблене
 
 # view
 view-list = Список
@@ -206,6 +208,12 @@ login-cookie-step-3 = Виберіть будь-який запит з назв�
 login-cookie-step-4 = На вкладці «Заголовки» знайдіть Cookie серед заголовків запиту, клацніть правою кнопкою та скопіюйте значення.
 login-cookie-step-note = Вставте значення повністю: панелі «Куки» недостатньо, бо значення має містити SAPISID і __Secure-3PAPISID.
 login-cookie-title = Вставте cookie YouTube Music, щоб завершити вхід
+login-server-title = Підключіться до свого сервера Subsonic
+login-server-detail = Введіть адресу будь-якого сервера Subsonic або OpenSubsonic (Navidrome, Airsonic, Gonic, …), а потім увійдіть за допомогою імені користувача та пароля сервера. Сесія залишається на цьому пристрої.
+login-server-hint = https://music.example.com
+login-username-hint = Ім'я користувача
+login-password-hint = Пароль
+login-server-submit = Підключитися
 login-account-title = Виберіть акаунт
 login-account-detail = У цій сесії виконано вхід у кілька акаунтів Google. Виберіть той, який має використовувати Sonora.
 
@@ -229,8 +237,6 @@ artist-monthly-listeners = { $count ->
    *[other] { $value } слухачів на місяць
 }
 artist-play = Слухати
-artist-follow = Відстежувати
-artist-unfollow = Не відстежувати
 artist-popular = Популярне
 artist-popular-eyebrow = Знайомство з виконавцем
 artist-popular-empty = Поки немає чого слухати в цього виконавця

@@ -25,7 +25,6 @@ nav-search = Search
 nav-library = Your Library
 nav-settings = Settings
 nav-songs = Songs
-nav-favorites = Favorites
 nav-albums = Albums
 nav-playlists = Playlists
 nav-artists = Artists
@@ -42,12 +41,14 @@ library-play-liked-songs = Play
 library-no-songs = No favorites yet
 library-no-albums = No saved albums yet
 library-no-playlists = No playlists yet
-library-no-artists = No followed artists yet
+library-no-artists = No favorite artists yet
 library-no-local-songs = No imported songs found
-library-no-local-favorites = No local favorites yet
 library-no-local-albums = No imported albums found
 library-no-local-artists = No imported artists found
 library-no-local-playlists = No local playlists yet
+library-no-catalog-songs = No songs found
+library-no-catalog-albums = No albums found
+library-no-catalog-artists = No artists found
 library-no-matches = No matches
 library-not-loaded = Your library did not load
 library-part-not-loaded = This part of your library did not load
@@ -167,7 +168,6 @@ playlist-again-add = Add again
 confirm-remove-library-title = Remove from library
 confirm-remove-playlist-title = Remove from playlist
 confirm-remove-history-title = Remove from history
-confirm-unfollow-title = Unfollow
 confirm-remove-songs = { $count ->
     [one] Remove this song from your library?
    *[other] Remove { $count } songs from your library?
@@ -184,9 +184,9 @@ confirm-remove-albums = { $count ->
     [one] Remove this album from your library?
    *[other] Remove { $count } albums from your library?
 }
-confirm-unfollow-artists = { $count ->
-    [one] Unfollow this artist?
-   *[other] Unfollow { $count } artists?
+confirm-remove-artists = { $count ->
+    [one] Remove this artist from Favorites?
+   *[other] Remove { $count } artists from Favorites?
 }
 confirm-remove-playlists = { $count ->
     [one] Remove this playlist from your library?
@@ -238,6 +238,7 @@ filter-duration = Duration
 filter-year = Year
 filter-explicit = Explicit only
 filter-playable = Playable only
+filter-favorites = Favorites only
 filter-owned = By you
 
 # view
@@ -278,6 +279,12 @@ login-cookie-step-3 = Select any request named "browse" or "next".
 login-cookie-step-4 = In Headers, find Cookie under Request Headers, right-click it and copy its value.
 login-cookie-step-note = Make sure to paste the whole value, including SAPISID and __Secure-3PAPISID.
 login-cookie-title = Paste your YouTube Music cookies to finish signing in
+login-server-title = Connect to your Subsonic server
+login-server-detail = Enter the address of any Subsonic or OpenSubsonic server (Navidrome, Airsonic, Gonic, …), then sign in with your server username and password. The session stays on this device.
+login-server-hint = https://music.example.com
+login-username-hint = Username
+login-password-hint = Password
+login-server-submit = Connect
 login-account-title = Choose an account
 login-account-detail = This session is signed in to more than one Google account. Pick the one Sonora should use.
 
@@ -300,8 +307,6 @@ artist-monthly-listeners = { $count ->
    *[other] { $value } monthly listeners
 }
 artist-play = Play now
-artist-follow = Follow
-artist-unfollow = Unfollow
 artist-popular = Popular
 artist-popular-eyebrow = Explore this artist
 artist-popular-empty = Nothing to play from this artist yet

@@ -18,8 +18,8 @@ use ytmusic::YtMusic;
 use crate::youtube::playback::Factory;
 
 use crate::{
-    InputSource, MusicProvider, PromptSink, ProviderSession, SignIn, SignInPrompt, UserProfile,
-    credentials,
+    InputSource, MusicProvider, PromptSink, ProviderSession, Shape, SignIn, SignInPrompt,
+    UserProfile, credentials,
 };
 pub use client::YouTubeClient;
 
@@ -89,6 +89,7 @@ impl YouTubeProvider {
             profile,
             api: Arc::new(client),
             playback: Arc::new(Factory::new(api)),
+            shape: Shape::Saved,
             authenticated: true,
             playcounts: false,
         }
@@ -102,6 +103,7 @@ impl YouTubeProvider {
             },
             api: Arc::new(YouTubeClient::new(api.clone())),
             playback: Arc::new(Factory::new(api)),
+            shape: Shape::Saved,
             authenticated: false,
             playcounts: false,
         }
@@ -269,6 +271,9 @@ impl MusicProvider for YouTubeProvider {
             }
             SignIn::Path(_) => Err(anyhow::anyhow!(
                 "youtube does not sign in with a folder path"
+            )),
+            SignIn::Credentials { .. } => Err(anyhow::anyhow!(
+                "youtube does not sign in with a server address"
             )),
         }
     }
